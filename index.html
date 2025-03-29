@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FanFic Creator</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: #f0f0f0;
+        }
+        .neubrutalism {
+            border: 3px solid #000;
+            box-shadow: 5px 5px 0px #000;
+            transition: all 0.2s ease;
+        }
+        .neubrutalism:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 7px 7px 0px #000;
+        }
+        .loading {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+    <div id="app" class="max-w-4xl mx-auto">
+        <h1 class="text-4xl font-bold mb-8 neubrutalism bg-yellow-300 p-4 inline-block">🦄 FanFic Creator</h1>
+
+        <div v-if="!currentStory" class="mb-8">
+            <textarea 
+                v-model="storyInput" 
+                class="w-full h-48 p-4 mb-4 neubrutalism bg-white"
+                placeholder="Write your fan fiction story here..."></textarea>
+            <button 
+                @click="generateStory" 
+                :disabled="loading"
+                class="neubrutalism bg-green-300 px-6 py-3 text-lg font-bold disabled:opacity-50">
+                {{ loading ? 'Generating...' : 'Generate Story' }}
+            </button>
+        </div>
+
+        <div v-if="currentStory" class="space-y-6">
+            <div class="neubrutalism bg-white p-6">
+                <h2 class="text-2xl font-bold mb-4">Generated Story</h2>
+                <p class="whitespace-pre-line">{{ currentStory }}</p>
+            </div>
+
+            <div v-if="!generatedImage" class="text-center">
+                <button 
+                    @click="generateImage" 
+                    :disabled="imageLoading"
+                    class="neubrutalism bg-blue-300 px-6 py-3 text-lg font-bold disabled:opacity-50">
+                    {{ imageLoading ? 'Creating Art...' : 'Generate Illustration' }}
+                </button>
+            </div>
+
+            <div v-if="generatedImage" class="neubrutalism bg-white p-6">
+                <img :src="generatedImage" alt="Generated illustration" class="w-full h-auto mb-4">
+                <button 
+                    @click="publishStory" 
+                    class="neubrutalism bg-pink-300 px-6 py-3 text-lg font-bold">
+                    Publish Story
+                </button>
+            </div>
+        </div>
+
+        <div class="mt-12">
+            <h2 class="text-2xl font-bold mb-6 neubrutalism bg-purple-300 p-4 inline-block">Published Stories</h2>
+            <div class="space-y-8">
+                <div v-for="story in publishedStories" :key="story.id" class="neubrutalism bg-white p-6">
+                    <img :src="story.image" alt="Story illustration" class="w-full h-auto mb-4">
+                    <p class="whitespace-pre-line mb-4">{{ story.content }}</p>
+                    <div class="flex items-center gap-4">
+                        <button 
+                            @click="toggleLike(story)"
+                            class="neubrutalism bg-red-300 px-4 py-2">
+                            <i class="bi bi-heart-fill"></i> {{ story.likes }}
+                        </button>
+                        <div class="flex-1">
+                            <input 
+                                v-model="story.newComment"
+                                class="neubrutalism bg-white px-4 py-2 w-full"
+                                placeholder="Add a comment...">
+                        </div>
+                        <button 
+                            @click="addComment(story)"
+                            class="neubrutalism bg-orange-300 px-4 py-2">
+                            Post
+                        </button>
+                    </div>
+                    <div class="mt-4 space-y-2">
+                        <div v-for="comment in story.comments" :key="comment.id" class="neubrutalism bg-gray-100 p-2">
+                            {{ comment.text }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    storyInput: '',
+                    currentStory: null,
+                    generatedImage: null,
+                    loading: false,
+                    imageLoading: false,
+                    publishedStories: [],
+                    userId: localStorage.getItem('userId') || `user-${Date.now()}`
+                }
+            },
+            created() {
+                if (!localStorage.getItem('userId')) {
+                    localStorage.setItem('userId', this.userId)
+                }
+                this.loadStories()
+            },
+            methods: {
+                async generateStory() {
+                    this.loading = true
+                    try {
+                        const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/ai', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Bearer ojaHBTAKJwScvKJVVjFU1GJ8RG82',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                messages: [{
+                                    role: 'user',
+                                    content: [{
+                                        type: 'text',
+                                        text: `Generate a creative fan fiction story based on this prompt: ${this.storyInput}`
+                                    }]
+                                }]
+                            })
+                        })
+                        const data = await response.json()
+                        this.currentStory = data.message
+                    } catch (error) {
+                        console.error('Error generating story:', error)
+                        alert('Failed to generate story. Please try again.')
+                    }
+                    this.loading = false
+                },
+                async generateImage() {
+                    this.imageLoading = true
+                    try {
+                        const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/ai', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Bearer ojaHBTAKJwScvKJVVjFU1GJ8RG82',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                messages: [{
+                                    role: 'user',
+                                    content: [{
+                                        type: 'text',
+                                        text: `Generate an illustration for this story: ${this.currentStory}`
+                                    }]
+                                }]
+                            })
+                        })
+                        const data = await response.json()
+                        // For demonstration, using a placeholder image
+                        this.generatedImage = 'https://source.unsplash.com/random/800x400'
+                    } catch (error) {
+                        console.error('Error generating image:', error)
+                        alert('Failed to generate image. Please try again.')
+                    }
+                    this.imageLoading = false
+                },
+                async publishStory() {
+                    try {
+                        const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Bearer ojaHBTAKJwScvKJVVjFU1GJ8RG82',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                appSlug: 'fanfic-creator-123',
+                                action: 'create',
+                                collection: 'stories',
+                                data: {
+                                    content: this.currentStory,
+                                    image: this.generatedImage,
+                                    likes: 0,
+                                    comments: [],
+                                    userId: this.userId,
+                                    timestamp: new Date().toISOString()
+                                }
+                            })
+                        })
+                        await this.loadStories()
+                        this.currentStory = null
+                        this.generatedImage = null
+                        this.storyInput = ''
+                    } catch (error) {
+                        console.error('Error publishing story:', error)
+                        alert('Failed to publish story. Please try again.')
+                    }
+                },
+                async loadStories() {
+                    try {
+                        const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Bearer ojaHBTAKJwScvKJVVjFU1GJ8RG82',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                appSlug: 'fanfic-creator-123',
+                                action: 'read',
+                                collection: 'stories'
+                            })
+                        })
+                        const data = await response.json()
+                        this.publishedStories = data.result.read.map(story => ({
+                            ...story,
+                            newComment: ''
+                        }))
+                    } catch (error) {
+                        console.error('Error loading stories:', error)
+                    }
+                },
+                async toggleLike(story) {
+                    try {
+                        await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Bearer ojaHBTAKJwScvKJVVjFU1GJ8RG82',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                appSlug: 'fanfic-creator-123',
+                                action: 'update',
+                                collection: 'stories',
+                                id: story._id,
+                                data: {
+                                    likes: (story.likes || 0) + 1
+                                }
+                            })
+                        })
+                        await this.loadStories()
+                    } catch (error) {
+                        console.error('Error updating likes:', error)
+                    }
+                },
+                async addComment(story) {
+                    if (!story.newComment.trim()) return
+                    try {
+                        const comments = [...(story.comments || []), {
+                            id: Date.now(),
+                            text: story.newComment,
+                            userId: this.userId
+                        }]
+                        await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Bearer ojaHBTAKJwScvKJVVjFU1GJ8RG82',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                appSlug: 'fanfic-creator-123',
+                                action: 'update',
+                                collection: 'stories',
+                                id: story._id,
+                                data: { comments }
+                            })
+                        })
+                        story.newComment = ''
+                        await this.loadStories()
+                    } catch (error) {
+                        console.error('Error adding comment:', error)
+                    }
+                }
+            }
+        }).mount('#app')
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
